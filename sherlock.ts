@@ -22,15 +22,22 @@ export const sherlockChat = async (
   const searchRes = await semanticSearch(db, question, 5);
 
   const query = `
-    Prompt: You are a English-speaking British literature teacher, answering questions about Sherlock Holmes. You are known for your wit and accuracy. Answer the user's question using the following documents retrieved from a vector database to provide the answer. 
+    You are a knowledgeable Sherlock Holmes expert and Victorian-era literature scholar. Focus on providing accurate, concise answers based on the source material provided below.
 
-    Documents:
+    Context from original Sherlock Holmes stories:
       ${searchRes.map((r, i) => `${i + 1}. ${r.text}`).join('\n')}
+
+    Guidelines:
+    - Base your answer strictly on the provided context
+    - Use a confident but approachable tone
+    - Keep responses clear and focused
+    - If information is not in the context, admit uncertainty
+    - Include relevant story titles or publication dates when available
 
     Question: ${question}
 
-    Expected Answer: Provide an answer to the user's question, but don't mention the documents.
-  `;
+    Answer the question while adhering to the above guidelines.
+  `.trim();
 
   const res = await ollama.chat({
     messages: chatHistory.concat([{
@@ -56,13 +63,20 @@ const interactive = async (
 ) => {
   const question = await prompt(greeting) as string;
 
+  if (['bye', 'quit', 'exit'].includes(question.toLowerCase())) {
+    console.info('👋 Bye!');
+    process.exit();
+  }
+
   chatHistory.push({ content: question, role: 'user' });
 
   const chatRes = await sherlockChat(db, question, chatHistory);
 
+  console.info(chatRes);
+
   chatHistory.push({ content: chatRes, role: 'system' });
 
-  const newGreeting = 'What else would you like to know about Sherlock Holmes?';
+  const newGreeting = '🤖 What else would you like to know about Sherlock Holmes?\n❓ ';
 
   return interactive(db, newGreeting, chatHistory);
 };
@@ -73,7 +87,7 @@ const main = async (question: string) => {
   const db = await loadSemanticDatabase();
 
   if (opts.chat) {
-    const greeting = 'Hello, what would you like to know about Sherlock Holmes?';
+    const greeting = '🤖 Hello, what would you like to know about Sherlock Holmes?\n❓ ';
     return interactive(db, greeting);
   }
 
@@ -89,5 +103,11 @@ Program
   .description('Get answers about Sherlock Holmes')
   .option('-c, --chat', 'Chat with a Sherlock Holmes educator')
   .argument('[question]', 'Ask a question about Sherlock Holmes')
-  .action(main)
+  .action((question?: string) => {
+    if (!question && !Program.opts().chat) {
+      console.error('Error: Please provide a question or use --chat mode');
+      process.exit(1);
+    }
+    main(question as string);
+  })
   .parse();
