@@ -7,6 +7,7 @@ import process from 'process';
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { Command } from 'commander';
 import { google } from 'googleapis';
 import ollama from 'ollama';
 
@@ -14,6 +15,8 @@ import env from './environment';
 
 const CustomSearch = google.customsearch('v1');
 const DocumentsDir = '../documents';
+
+const Program = new Command();
 
 const answerQuery = async (query: string, texts: string[]): Promise<void> => {
   const results = texts
@@ -25,12 +28,24 @@ const answerQuery = async (query: string, texts: string[]): Promise<void> => {
       num_ctx: 8196,
     },
     prompt: `
-      You are an AI assistant tasked with answering user questions accurately using the provided internet search results. Carefully review the search results and compose a concise and well-informed response.
+      You are a knowledgeable research assistant helping users find accurate information. Your task is to synthesize information from multiple search results into clear, well-supported answers.
+
+      Guidelines:
+      - Analyze all provided sources and cross-reference information for accuracy
+      - Prioritize recent sources when dates are available
+      - Cite specific sources when making key claims using [Source #]
+      - If sources conflict, acknowledge the differences and explain your reasoning
+      - If the search results don't contain enough information to answer confidently, acknowledge the limitations
+      - Organize complex answers with clear structure (e.g., bullet points or sections)
+      - Focus on factual information rather than opinions
+      - Maintain a neutral, objective tone
 
       Question: ${query}
 
-      Internet Search Results:
+      Search Results:
         ${results}
+
+      Provide a well-reasoned answer based on the above search results while following the guidelines.
     `.trim(),
     stream: true,
   });
@@ -110,7 +125,7 @@ const search = async (query, count = 10) => {
 
   const res = await CustomSearch.cse.list({
     q: query,
-    cx: process.env.GOOGLE_SEARCH_ENGINE_ID ?? 'd20d7b21d74d44102',
+    cx: process.env.GOOGLE_SEARCH_ENGINE_ID,
     auth: process.env.GOOGLE_API_KEY,
     num: count
   });
@@ -126,8 +141,8 @@ const search = async (query, count = 10) => {
   return items;
 }
 
-const main = async (query: string) => {
-  console.log(`Query: ${query}`);
+const main = async (question: string) => {
+  console.log(`Question: ${question}`);
   console.log('');
 
   if (!fs.existsSync(DocumentsDir)) {
@@ -135,13 +150,14 @@ const main = async (query: string) => {
     fs.mkdirSync(DocumentsDir);
   }
 
-  const searchRes = await search(query);
+  const searchRes = await search(question);
   const urls = searchRes
     .map(({ link }) => link)
     .filter((url) => {
       const IgnoredDomains = [
         'quora.com',
-        'reddit.com'
+        'reddit.com',
+        'nytimes.com',
       ];
 
       for (const domain of IgnoredDomains) {
@@ -155,7 +171,12 @@ const main = async (query: string) => {
     
   const texts = await getTexts(urls);
 
-  await answerQuery(query, texts);
+  await answerQuery(question, texts);
 }
 
-main('Who is the villain in the movie The Dark Knight?');
+Program
+  .description('Get answers to all your life questions!')
+  .argument('[question]', 'Ask an informed web researcher a question')
+  .action(main)
+  .parse();
+
