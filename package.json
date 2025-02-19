@@ -8,6 +8,7 @@
   "type": "module",
   "dependencies": {
     "@langchain/textsplitters": "^0.1.0",
+    "@opendocsg/pdf2md": "^0.2.1",
     "axios": "^1.7.9",
     "cheerio": "^1.0.0",
     "commander": "^13.1.0",
