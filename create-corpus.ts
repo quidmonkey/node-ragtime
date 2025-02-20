@@ -5,8 +5,13 @@ import { Command } from 'commander';
 import { sync as globSync } from 'glob';
  
 import config from './environment';
-import { Corpus, createDatabases, saveDatabases } from './utils/etl';
-import { convertDocument, getFilename } from './utils/rag';
+import {
+  Corpus,
+  convertDocument,
+  createDatabases,
+  getFilename,
+  saveDatabases
+} from './utils/etl';
 
 const Program = new Command();
 

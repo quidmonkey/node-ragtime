@@ -1,7 +1,8 @@
-import { promises as fs } from 'fs';
+import fs from 'fs';
 import path from 'path';
 
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import pdf2md from '@opendocsg/pdf2md';
 import { sync as globSync } from 'glob';
 import { VectorDB } from 'imvectordb';
 import chunk from 'lodash/chunk';
@@ -107,6 +108,22 @@ export const chunkCorpus = async (
 
   return zipObject(Object.keys(corpus), chunks);
 };
+
+export const convertDocument = async (
+  documentPath: string
+): Promise<string> => {
+  const filetype = path.extname(documentPath);
+
+  if (filetype === '.pdf') {
+    const file = fs.readFileSync(documentPath);
+    return pdf2md(file);
+  } else if (filetype === '.txt' || filetype === '.md') {
+    return fs.readFileSync(documentPath, 'utf8');
+  } else {
+    throw new Error(`Unsupported file type ${filetype} - Engine only supports pdf, txt, and md files`);
+  }
+};
+
 
 export const createDatabases = async (
   corpus: Corpus,
@@ -247,6 +264,15 @@ export const getEmbeddingRange = (db: VectorDB) => {
     min: mi,
   };
 };
+
+// generate a filename from a string
+// by removing punctuation and spaces
+export const getFilename = (s: string): string => s
+  .trim()
+  .toLowerCase()
+  .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()\?]/g, '')  // remove punctuation
+  .replace(/\s+/g, '_');  // remove spaces
+
 
 export const loadDatabases = async (
   databasePaths?: DatabasePaths
