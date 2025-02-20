@@ -294,8 +294,8 @@ export const loadDatabases = async (
 export const loadKeywordDatabase = async (
   keywordDatabasePath?: string
 ): Promise<MiniSearch> => {
-  const filepath = keywordDatabasePath ?? config.KEYWORD_DATABASE;
-  const file = await fs.readFile(filepath, 'utf8');
+  const filepath = keywordDatabasePath ?? `${getFilename(config.LLM)}-keyword-database.json`;
+  const file = fs.readFileSync(filepath, 'utf8');
 
   return MiniSearch.loadJSON(file, {
     fields: ['title', 'text'],
@@ -310,7 +310,7 @@ export const loadSemanticDatabase = async (
   semanticDatabasePath?: string
 ): Promise<VectorDB> => {
   const db = new VectorDB();
-  const filepath = semanticDatabasePath ?? config.SEMANTIC_DATABASE;
+  const filepath = semanticDatabasePath ?? `${getFilename(config.LLM)}-semantic-vector.db`;
 
   await db.loadFile(filepath);
 
@@ -327,7 +327,7 @@ export const readFiles = async (
   for (const filepath of filepaths) {
     const title = path.basename(filepath)
       .split('.')[0];; // strip folger suffix
-    const file = await fs.readFile(filepath, 'utf8');
+    const file = fs.readFileSync(filepath, 'utf8');
 
     corpus[title] = file;
   }
@@ -353,11 +353,11 @@ export const saveKeywordDatabase = async (
   keywordDatabase: MiniSearch,
   keywordDatabasePath?: string,
 ): Promise<void> => {
-  const filepath = keywordDatabasePath ?? config.KEYWORD_DATABASE;
+  const filepath = keywordDatabasePath ?? `${getFilename(config.LLM)}-keyword-database.json`;
   const data = JSON.stringify(keywordDatabase);
 
   try {    
-    await fs.writeFile(filepath, data, 'utf8');
+    fs.writeFileSync(filepath, data, 'utf8');
   } catch (err) {
     console.error('Unable to save keyword database to', filepath);
     console.error(err);
@@ -368,7 +368,7 @@ export const saveSemanticDatabase = async (
   semanticDatabase: VectorDB,
   semanticDatabasePath?: string,
 ): Promise<void> => {
-  const filepath = semanticDatabasePath ?? config.SEMANTIC_DATABASE;
+  const filepath = semanticDatabasePath ?? `${getFilename(config.LLM)}-semantic-vector.db`;
   
   try {
     await semanticDatabase.dumpFile(filepath);
