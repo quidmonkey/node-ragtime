@@ -13,16 +13,12 @@ const compareModels = env.COMPARE_MODELS
       'qwen2.5:1.5b',
       'qwen2.5:7b',
     ];
-const llm = env.LLM ?? 'qwen2.5:1.5b';
 const defaults = {
   COMPARE_MODELS: compareModels,
-  // EMBEDDING_CHUNK_SIZE: 1536,
   EMBEDDING_CHUNK_SIZE: 512,
   EMBEDDING_OVERLAP_SIZE: 20,
-  LLM: llm,
+  LLM: env.LLM ?? 'qwen2.5:1.5b',
   LOG_LEVEL: 'info',
-  KEYWORD_DATABASE: `${llm}-keyword-database.json`,
-  SEMANTIC_DATABASE: `${llm}-semantic-vector.db`,
 };
 const config: any = Object.entries(defaults)
   .reduce(
