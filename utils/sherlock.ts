@@ -1,16 +1,15 @@
-import { VectorDB } from 'imvectordb';
-import ollama, { Message } from 'ollama';
-
-import config from '../environment';
-import { semanticSearch } from './search';
+import {type VectorDB} from 'imvectordb';
+import ollama, {type Message} from 'ollama';
+import config from '../environment.js';
+import {semanticSearch} from './search.js';
 
 export const sherlockChat = async (
-  db: VectorDB,
+  database: VectorDB,
   question: string,
   chatHistory = [] as Message[],
   model = config.LLM,
-) => {
-  const searchRes = await semanticSearch(db, question, 5);
+): Promise<string> => {
+  const searchRes = await semanticSearch(database, question, 5);
 
   const query = `
     You are a knowledgeable Sherlock Holmes expert and Victorian-era literature scholar. Focus on providing accurate, concise answers based on the source material provided below.
@@ -38,5 +37,6 @@ export const sherlockChat = async (
     model,
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return res.message.content.trim();
 };

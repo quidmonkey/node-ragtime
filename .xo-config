@@ -1,3 +1,8 @@
 {
-	"space": true
+  "rules": {
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    "@typescript-eslint/no-unsafe-call": "off",
+    "unicorn/prevent-abbreviations": "off"
+  },
+  "space": true
 }
