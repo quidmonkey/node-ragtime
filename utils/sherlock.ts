@@ -28,11 +28,11 @@ export const sherlockChat = async (
     Question: ${question}
 
     Answer the question while adhering to the above guidelines.
-  `.trim();
+  `;
 
   const res = await ollama.chat({
     messages: chatHistory.concat([{
-      content: query,
+      content: query.trim(),
       role: 'user',
     }]),
     model,

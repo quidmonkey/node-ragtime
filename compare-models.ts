@@ -2,30 +2,11 @@
  * Rag-based LLM Nodejs script that compares the performance of different LLMs 
  * by using Ollama LLM to answer a query about Sherlock Holmes
  */
-import { sync as globSync } from 'glob';
-
-import { VectorDB } from 'imvectordb';
-
 import config from './environment';
 
-import { createSherlockDatabases } from './create-sherlock-corpus';
-import { sherlockChat } from './sherlock';
-
 import { getFilename, loadSemanticDatabase } from './utils/etl';
+import { sherlockChat } from './utils/sherlock';
 
-
-const getSemanticDatabase = async (model: string): Promise<VectorDB> => {
-  const databaseName = getFilename(model);
-  const databasePaths = globSync(`${databaseName}-*.db`);
-
-  if (databasePaths.length > 0) {
-    return loadSemanticDatabase(databasePaths[0]);
-  }
-  
-  const { semanticDatabase } = await createSherlockDatabases();
-
-  return semanticDatabase;
-};
 
 const main = async () => {
   const queries = [
@@ -37,7 +18,8 @@ const main = async () => {
   ];
 
   for (const model of config.COMPARE_MODELS) {
-    const db = await getSemanticDatabase(model);
+    const databasePath = `${getFilename(model)}-semantic-vector.db`;
+    const db = await loadSemanticDatabase(databasePath);
 
     console.log('');
     console.log('### Comparing Model', model, '###');
