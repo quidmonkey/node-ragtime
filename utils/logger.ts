@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
+
 export type LogLevel = 'debug' | 'info' | 'log' | 'warn' | 'error' | 'silent';
 
 export const setLogLevel = (level: LogLevel): void => {
