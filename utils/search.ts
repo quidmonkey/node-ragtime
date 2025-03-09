@@ -1,29 +1,31 @@
-import { VectorDB } from 'imvectordb';
+import {type VectorDB} from 'imvectordb';
 import round from 'lodash/round';
 import sortBy from 'lodash/sortBy';
-import MiniSearch, { SearchResult } from 'minisearch';
+/* eslint-disable import/no-duplicates */
+import type MiniSearch from 'minisearch';
+import {type SearchResult} from 'minisearch';
+/* eslint-enable */
+import {getEmbedding} from './etl.js';
 
-import { getEmbedding } from './etl';
-
-export interface CombinedScore {
+export type CombinedScore = {
   id: string;
   keywordScore: number;
   rank: number;
   semanticScore: number;
   text: string;
   title: string;
-}
-export interface Score {
+};
+export type Score = {
   id: string;
   rank: number;
   text: string;
   title: string;
-}
+};
 
-// keyword + fuzzy
+// Keyword + fuzzy
 export const findKeywordMatches = (
   db: MiniSearch,
-  query: string
+  query: string,
 ): SearchResult[] =>
   db.search(query);
 
@@ -42,17 +44,20 @@ export const getScores = (
   semanticResults: any[],
   limit?: number,
 ): CombinedScore[] => {
-  const scores: any[] = [];
+  const scores: CombinedScore[] = [];
 
   for (const keywordResult of keywordResults) {
     const match = semanticResults.find(
-      (semanticResult) => semanticResult.document.id === keywordResult.id.toString()
+      semanticResult => semanticResult.document.id === keywordResult.id.toString(),
     );
+
+    const semanticScore = match?.similarity ?? 0;
 
     scores.push({
       id: keywordResult.id.toString(),
       keywordScore: keywordResult.score,
-      semanticScore: match ? match.similarity : 0,
+      rank: 0,
+      semanticScore,
       text: keywordResult.text,
       title: keywordResult.title,
     });
@@ -60,13 +65,14 @@ export const getScores = (
 
   for (const semanticResult of semanticResults) {
     const match = scores.find(
-      (score) => score.id === semanticResult.document.id
+      score => score.id === semanticResult.document.id,
     );
 
     if (!match) {
       scores.push({
         id: semanticResult.document.id,
         keywordScore: 0,
+        rank: 0,
         semanticScore: semanticResult.similarity,
         text: semanticResult.document.metadata.text,
         title: semanticResult.document.metadata.title,
@@ -75,13 +81,13 @@ export const getScores = (
   }
 
   const rankedScores = scores.map(
-    (score) => ({
+    score => ({
       ...score,
       rank: round(
         rank(score.keywordScore, score.semanticScore),
-        4
+        4,
       ),
-    })
+    }),
   );
 
   const sortedScores = sortBy(rankedScores, 'rank').reverse();
@@ -100,7 +106,7 @@ export const keywordSearch = (
 ): Score[] => {
   const keywordResults = findKeywordMatches(keywordDatabase, query);
 
-  const scores = keywordResults.map((keywordResult) => ({
+  const scores = keywordResults.map(keywordResult => ({
     id: keywordResult.id.toString(),
     rank: round(keywordResult.score, 4),
     text: keywordResult.text,
@@ -114,13 +120,13 @@ export const keywordSearch = (
   return scores;
 };
 
-// rank search result using reciprocal ranked fusion
-export interface RankOptions {
+// Rank search result using reciprocal ranked fusion
+export type RankOptions = {
   keywordWeight?: number;
   semanticWeight?: number;
   rrfK?: number;
-}
-export const RankOptionDefaults = {
+};
+export const rankOptionsDefaults = {
   keywordWeight: 1,
   semanticWeight: 2,
   rrfK: 10,
@@ -128,11 +134,11 @@ export const RankOptionDefaults = {
 export const rank = (
   keywordScore: number,
   semanticScore: number,
-  rankOptions: RankOptions = RankOptionDefaults,
+  rankOptions: RankOptions = rankOptionsDefaults,
 ): number => {
-  const keywordWeight = rankOptions.keywordWeight ?? RankOptionDefaults.keywordWeight;
-  const semanticWeight = rankOptions.semanticWeight ?? RankOptionDefaults.semanticWeight;
-  const rrfK = rankOptions.rrfK ?? RankOptionDefaults.rrfK;
+  const keywordWeight = rankOptions.keywordWeight ?? rankOptionsDefaults.keywordWeight;
+  const semanticWeight = rankOptions.semanticWeight ?? rankOptionsDefaults.semanticWeight;
+  const rrfK = rankOptions.rrfK ?? rankOptionsDefaults.rrfK;
 
   const ks = keywordScore
     ? 1 / (rrfK + keywordScore) * keywordWeight
@@ -163,7 +169,7 @@ export const semanticSearch = async (
 ): Promise<Score[]> => {
   const semanticResults = await findSemanticMatches(semanticDatabase, query);
 
-  const scores = semanticResults.map((semanticResult) => ({
+  const scores = semanticResults.map(semanticResult => ({
     id: semanticResult.document.id,
     rank: round(semanticResult.similarity, 4),
     text: semanticResult.document.metadata.text,
