@@ -1,18 +1,16 @@
-import fs from 'fs';
-import path from 'path';
-
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import fs from 'node:fs';
+import path from 'node:path';
+import {RecursiveCharacterTextSplitter} from '@langchain/textsplitters';
 import pdf2md from '@opendocsg/pdf2md';
-import { sync as globSync } from 'glob';
-import { VectorDB } from 'imvectordb';
+import {sync as globSync} from 'glob';
+import {VectorDB} from 'imvectordb';
 import chunk from 'lodash/chunk';
 import max from 'lodash/max';
 import min from 'lodash/min';
 import zipObject from 'lodash/zipObject';
 import MiniSearch from 'minisearch';
 import ollama from 'ollama';
-
-import config from '../environment';
+import config from '../environment.js';
 
 export type Chunk = string[];
 export type Corpus = Record<Title, File>;
@@ -21,14 +19,14 @@ export type File = string;
 export type Title = string;
 export type Texts = Record<Title, Chunk>;
 
-interface Databases {
+type Databases = {
   keywordDatabase: MiniSearch;
   semanticDatabase: VectorDB;
-}
+};
 
 export const batchCreateDatabases = async (
   corpus: Corpus,
-  batchSize = 50
+  batchSize = 50,
 ): Promise<Databases> => {
   const [
     keywordDatabase,
@@ -46,38 +44,35 @@ export const batchCreateDatabases = async (
 
 export const batchCreateSemanticDatabase = async (
   corpus: Corpus,
-  batchSize = 50
+  batchSize = 50,
 ): Promise<VectorDB> => {
   console.info('Creating Semantic Vector Database');
 
   const db = new VectorDB();
-  
+
   const texts = await chunkCorpus(corpus);
-  
+
   let id = 1;
 
   const documents = Object.entries(texts);
 
-  for (let i = 0; i < documents.length; i++) {
-    const [title, chunks] = documents[i];
-    const batches = chunk(chunks, batchSize);
+  for (const [title, chunks] of documents) {
+    const batches: Chunk[] = chunk(chunks, batchSize);
 
     for (const batch of batches) {
-      const promises = batch.map((chunk) => getEmbedding(chunk));
+      const promises = batch.map(async chunk => getEmbedding(chunk));
       const embeddings = await Promise.all(promises);
 
-      for (let j = 0; j < embeddings.length; j++) {
-        const embedding = embeddings[j];
-        
+      for (const embedding of embeddings) {
         db.add({
           id: id.toString(),
           embedding,
           metadata: {
             text: chunk,
             title,
-          }
+          },
         });
-        
+
         id++;
       }
     }
@@ -91,7 +86,7 @@ export const batchCreateSemanticDatabase = async (
 };
 
 export const chunkCorpus = async (
-  corpus: Corpus
+  corpus: Corpus,
 ): Promise<Texts> => {
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: config.EMBEDDING_CHUNK_SIZE,
@@ -99,31 +94,32 @@ export const chunkCorpus = async (
   });
 
   const promises = Object.values(corpus)
-    .map((text) => splitter.createDocuments([text]));
+    .map(text => splitter.createDocuments([text]));
   const texts = await Promise.all(promises);
 
-  const chunks = texts.map((chunks) => 
-    chunks.map((chunk) => chunk.pageContent)
+  const chunks = texts.map(chunks =>
+    chunks.map(chunk => chunk.pageContent),
   );
 
   return zipObject(Object.keys(corpus), chunks);
 };
 
 export const convertDocument = async (
-  documentPath: string
+  documentPath: string,
 ): Promise<string> => {
   const filetype = path.extname(documentPath);
 
   if (filetype === '.pdf') {
     const file = fs.readFileSync(documentPath);
     return pdf2md(file);
-  } else if (filetype === '.txt' || filetype === '.md') {
-    return fs.readFileSync(documentPath, 'utf8');
-  } else {
-    throw new Error(`Unsupported file type ${filetype} - Engine only supports pdf, txt, and md files`);
   }
-};
 
+  if (filetype === '.txt' || filetype === '.md') {
+    return fs.readFileSync(documentPath, 'utf8');
+  }
+
+  throw new Error(`Unsupported file type ${filetype} - Engine only supports pdf, txt, and md files`);
+};
 
 export const createDatabases = async (
   corpus: Corpus,
@@ -142,9 +138,9 @@ export const createDatabases = async (
   };
 };
 
-// keyword + fuzzy
+// Keyword + fuzzy
 export const createKeywordDatabase = async (
-  corpus: Corpus
+  corpus: Corpus,
 ) => {
   console.info('Creating Keyword Database');
 
@@ -158,7 +154,7 @@ export const createKeywordDatabase = async (
       documents.push({
         id,
         title,
-        text: chunk
+        text: chunk,
       });
 
       id++;
@@ -186,9 +182,9 @@ export const createSemanticDatabase = async (
   console.info('Creating Semantic Vector Database');
 
   const db = new VectorDB();
-  
+
   const texts = await chunkCorpus(corpus);
-  
+
   let id = 1;
 
   const documents = Object.entries(texts);
@@ -211,16 +207,16 @@ export const createSemanticDatabase = async (
 
       const chunk = chunks[j];
       const embedding = await getEmbedding(chunk);
-      
+
       db.add({
         id: id.toString(),
         embedding,
         metadata: {
           text: chunk,
           title,
-        }
+        },
       });
-      
+
       id++;
     }
 
@@ -244,7 +240,7 @@ export const getEmbedding = async (
   return res.embedding;
 };
 
-// unfortunately, imvectordb does not expose
+// Unfortunately, imvectordb does not expose
 // metadata about the vector database
 export const getEmbeddingRange = (db: VectorDB) => {
   const s = db.size();
@@ -255,46 +251,47 @@ export const getEmbeddingRange = (db: VectorDB) => {
   for (let i = 1; i <= s; i++) {
     const d = db.get(i.toString());
 
+    /* eslint-disable @typescript-eslint/no-unsafe-argument */
     ma = Math.max(ma, max(d?.embedding));
     mi = Math.min(mi, min(d?.embedding));
+    /* eslint-enable */
   }
-  
+
   return {
     max: ma,
     min: mi,
   };
 };
 
-// generate a filename from a string
+// Generate a filename from a string
 // by removing punctuation and spaces
 export const getFilename = (s: string): string => s
   .trim()
   .toLowerCase()
-  .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()\?]/g, '')  // remove punctuation
-  .replace(/\s+/g, '_');  // remove spaces
-
+  .replaceAll(/[.,/#!$%^&*;:{}=\-_`~()?]/g, '') // Remove punctuation
+  .replaceAll(/\s+/g, '_'); // Remove spaces
 
 export const loadDatabases = async (
-  databasePaths?: DatabasePaths
+  databasePaths?: DatabasePaths,
 ): Promise<Databases> => {
   const [
     keywordDatabase,
-    semanticDatabase
+    semanticDatabase,
   ] = await Promise.all([
     loadKeywordDatabase(databasePaths?.keywordDatabasePath),
-    loadSemanticDatabase(databasePaths?.semanticDatabasePath)
+    loadSemanticDatabase(databasePaths?.semanticDatabasePath),
   ]);
 
   return {
     keywordDatabase,
-    semanticDatabase
+    semanticDatabase,
   };
 };
 
 export const loadKeywordDatabase = async (
-  keywordDatabasePath?: string
+  keywordDatabasePath?: string,
 ): Promise<MiniSearch> => {
-  const filepath = keywordDatabasePath ?? `${getFilename(config.LLM)}-keyword-database.json`;
+  const filepath = keywordDatabasePath ?? `${getFilename(config.LLM as string)}-keyword-database.json`;
   const file = fs.readFileSync(filepath, 'utf8');
 
   return MiniSearch.loadJSON(file, {
@@ -307,10 +304,10 @@ export const loadKeywordDatabase = async (
 };
 
 export const loadSemanticDatabase = async (
-  semanticDatabasePath?: string
+  semanticDatabasePath?: string,
 ): Promise<VectorDB> => {
   const db = new VectorDB();
-  const filepath = semanticDatabasePath ?? `${getFilename(config.LLM)}-semantic-vector.db`;
+  const filepath = semanticDatabasePath ?? `${getFilename(config.LLM as string)}-semantic-vector.db`;
 
   await db.loadFile(filepath);
 
@@ -318,15 +315,15 @@ export const loadSemanticDatabase = async (
 };
 
 export const readFiles = async (
-  globpath: string
+  globpath: string,
 ): Promise<Corpus> => {
   const corpus: Corpus = {};
 
-  const filepaths = globSync(globpath)
+  const filepaths = globSync(globpath);
 
   for (const filepath of filepaths) {
     const title = path.basename(filepath)
-      .split('.')[0];; // strip folger suffix
+      .split('.')[0]; // Strip folger suffix
     const file = fs.readFileSync(filepath, 'utf8');
 
     corpus[title] = file;
@@ -335,17 +332,17 @@ export const readFiles = async (
   return corpus;
 };
 
-export interface DatabasePaths {
+export type DatabasePaths = {
   keywordDatabasePath: string;
   semanticDatabasePath: string;
-}
+};
 export const saveDatabases = async (
   databases: Databases,
-  databasePaths?: DatabasePaths
+  databasePaths?: DatabasePaths,
 ): Promise<void> => {
   await Promise.all([
     saveKeywordDatabase(databases.keywordDatabase, databasePaths?.keywordDatabasePath),
-    saveSemanticDatabase(databases.semanticDatabase, databasePaths?.semanticDatabasePath),    
+    saveSemanticDatabase(databases.semanticDatabase, databasePaths?.semanticDatabasePath),
   ]);
 };
 
@@ -353,14 +350,14 @@ export const saveKeywordDatabase = async (
   keywordDatabase: MiniSearch,
   keywordDatabasePath?: string,
 ): Promise<void> => {
-  const filepath = keywordDatabasePath ?? `${getFilename(config.LLM)}-keyword-database.json`;
+  const filepath = keywordDatabasePath ?? `${getFilename(config.LLM as string)}-keyword-database.json`;
   const data = JSON.stringify(keywordDatabase);
 
-  try {    
+  try {
     fs.writeFileSync(filepath, data, 'utf8');
-  } catch (err) {
+  } catch (error) {
     console.error('Unable to save keyword database to', filepath);
-    console.error(err);
+    console.error(error);
   }
 };
 
@@ -368,12 +365,12 @@ export const saveSemanticDatabase = async (
   semanticDatabase: VectorDB,
   semanticDatabasePath?: string,
 ): Promise<void> => {
-  const filepath = semanticDatabasePath ?? `${getFilename(config.LLM)}-semantic-vector.db`;
-  
+  const filepath = semanticDatabasePath ?? `${getFilename(config.LLM as string)}-semantic-vector.db`;
+
   try {
     await semanticDatabase.dumpFile(filepath);
-  } catch (err) {
+  } catch (error) {
     console.error('Unable to save semantic vector database to', filepath);
-    console.error(err);
+    console.error(error);
   }
 };
