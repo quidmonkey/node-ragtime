@@ -20,364 +20,364 @@ export type Title = string;
 export type Texts = Record<Title, Chunk>;
 
 export interface Document {
-	id: number;
-	title: string;
-	text: string;
+  id: number;
+  title: string;
+  text: string;
 }
 
 type Databases = {
-	keywordDatabase: MiniSearch;
-	semanticDatabase: VectorDB;
+  keywordDatabase: MiniSearch;
+  semanticDatabase: VectorDB;
 };
 
 export const batchCreateDatabases = async (
-	corpus: Corpus,
-	batchSize = 50,
+  corpus: Corpus,
+  batchSize = 50,
 ): Promise<Databases> => {
-	const [keywordDatabase, semanticDatabase] = await Promise.all([
-		createKeywordDatabase(corpus),
-		batchCreateSemanticDatabase(corpus, batchSize),
-	]);
+  const [keywordDatabase, semanticDatabase] = await Promise.all([
+    createKeywordDatabase(corpus),
+    batchCreateSemanticDatabase(corpus, batchSize),
+  ]);
 
-	return {
-		keywordDatabase,
-		semanticDatabase,
-	};
+  return {
+    keywordDatabase,
+    semanticDatabase,
+  };
 };
 
 export const batchCreateSemanticDatabase = async (
-	corpus: Corpus,
-	batchSize = 50,
+  corpus: Corpus,
+  batchSize = 50,
 ): Promise<VectorDB> => {
-	console.info("Creating Semantic Vector Database");
+  console.info("Creating Semantic Vector Database");
 
-	const db = new VectorDB();
+  const db = new VectorDB();
 
-	const texts = await chunkCorpus(corpus);
+  const texts = await chunkCorpus(corpus);
 
-	let id = 1;
+  let id = 1;
 
-	const documents = Object.entries(texts);
+  const documents = Object.entries(texts);
 
-	for (const [title, chunks] of documents) {
-		const batches: Chunk[] = chunk(chunks, batchSize);
+  for (const [title, chunks] of documents) {
+    const batches: Chunk[] = chunk(chunks, batchSize);
 
-		for (const batch of batches) {
-			const promises = batch.map(async (chunk) => getEmbedding(chunk));
-			const embeddings = await Promise.all(promises);
+    for (const batch of batches) {
+      const promises = batch.map(async (chunk) => getEmbedding(chunk));
+      const embeddings = await Promise.all(promises);
 
-			for (const embedding of embeddings) {
-				db.add({
-					id: id.toString(),
-					embedding,
-					metadata: {
-						text: chunk,
-						title,
-					},
-				});
+      for (const embedding of embeddings) {
+        db.add({
+          id: id.toString(),
+          embedding,
+          metadata: {
+            text: chunk,
+            title,
+          },
+        });
 
-				id++;
-			}
-		}
+        id++;
+      }
+    }
 
-		console.info("Created Semantic Embeddings for", title);
-	}
+    console.info("Created Semantic Embeddings for", title);
+  }
 
-	console.info("Created Semantic Vector Database");
+  console.info("Created Semantic Vector Database");
 
-	return db;
+  return db;
 };
 
 export const chunkCorpus = async (corpus: Corpus): Promise<Texts> => {
-	const splitter = new RecursiveCharacterTextSplitter({
-		chunkSize: config.EMBEDDING_CHUNK_SIZE,
-		chunkOverlap: config.EMBBEDING_OVERLAP_SIZE,
-	});
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: config.EMBEDDING_CHUNK_SIZE,
+    chunkOverlap: config.EMBBEDING_OVERLAP_SIZE,
+  });
 
-	const promises = Object.values(corpus).map((text) =>
-		splitter.createDocuments([text]),
-	);
-	const texts = await Promise.all(promises);
+  const promises = Object.values(corpus).map((text) =>
+    splitter.createDocuments([text]),
+  );
+  const texts = await Promise.all(promises);
 
-	const chunks = texts.map((chunks) =>
-		chunks.map((chunk) => chunk.pageContent),
-	);
+  const chunks = texts.map((chunks) =>
+    chunks.map((chunk) => chunk.pageContent),
+  );
 
-	return zipObject(Object.keys(corpus), chunks);
+  return zipObject(Object.keys(corpus), chunks);
 };
 
 export const convertDocument = async (
-	documentPath: string,
+  documentPath: string,
 ): Promise<string> => {
-	const filetype = path.extname(documentPath);
+  const filetype = path.extname(documentPath);
 
-	if (filetype === ".pdf") {
-		const file = fs.readFileSync(documentPath);
-		return pdf2md(file);
-	}
+  if (filetype === ".pdf") {
+    const file = fs.readFileSync(documentPath);
+    return pdf2md(file);
+  }
 
-	if (filetype === ".txt" || filetype === ".md") {
-		return fs.readFileSync(documentPath, "utf8");
-	}
+  if (filetype === ".txt" || filetype === ".md") {
+    return fs.readFileSync(documentPath, "utf8");
+  }
 
-	throw new Error(
-		`Unsupported file type ${filetype} - Engine only supports pdf, txt, and md files`,
-	);
+  throw new Error(
+    `Unsupported file type ${filetype} - Engine only supports pdf, txt, and md files`,
+  );
 };
 
 export const createDatabases = async (corpus: Corpus): Promise<Databases> => {
-	const [keywordDatabase, semanticDatabase] = await Promise.all([
-		createKeywordDatabase(corpus),
-		createSemanticDatabase(corpus),
-	]);
+  const [keywordDatabase, semanticDatabase] = await Promise.all([
+    createKeywordDatabase(corpus),
+    createSemanticDatabase(corpus),
+  ]);
 
-	return {
-		keywordDatabase,
-		semanticDatabase,
-	};
+  return {
+    keywordDatabase,
+    semanticDatabase,
+  };
 };
 
 // Keyword + fuzzy
 export const createKeywordDatabase = async (corpus: Corpus) => {
-	console.info("Creating Keyword Database");
+  console.info("Creating Keyword Database");
 
-	const documents: Document[] = [];
-	const texts = await chunkCorpus(corpus);
+  const documents: Document[] = [];
+  const texts = await chunkCorpus(corpus);
 
-	let id = 1;
+  let id = 1;
 
-	for (const [title, chunks] of Object.entries(texts)) {
-		for (const chunk of chunks) {
-			documents.push({
-				id,
-				title,
-				text: chunk,
-			});
+  for (const [title, chunks] of Object.entries(texts)) {
+    for (const chunk of chunks) {
+      documents.push({
+        id,
+        title,
+        text: chunk,
+      });
 
-			id++;
-		}
-	}
+      id++;
+    }
+  }
 
-	const miniSearch = new MiniSearch({
-		fields: ["title", "text"],
-		searchOptions: {
-			fuzzy: 0.1,
-		},
-		storeFields: ["title", "text"],
-	});
+  const miniSearch = new MiniSearch({
+    fields: ["title", "text"],
+    searchOptions: {
+      fuzzy: 0.1,
+    },
+    storeFields: ["title", "text"],
+  });
 
-	miniSearch.addAll(documents);
+  miniSearch.addAll(documents);
 
-	console.info("Created Keyword Database");
+  console.info("Created Keyword Database");
 
-	return miniSearch;
+  return miniSearch;
 };
 
 export const createSemanticDatabase = async (
-	corpus: Corpus,
+  corpus: Corpus,
 ): Promise<VectorDB> => {
-	console.info("Creating Semantic Vector Database");
+  console.info("Creating Semantic Vector Database");
 
-	const db = new VectorDB();
+  const db = new VectorDB();
 
-	const texts = await chunkCorpus(corpus);
+  const texts = await chunkCorpus(corpus);
 
-	let id = 1;
+  let id = 1;
 
-	const documents = Object.entries(texts);
+  const documents = Object.entries(texts);
 
-	for (let i = 0; i < documents.length; i++) {
-		const [title, chunks] = documents[i];
+  for (let i = 0; i < documents.length; i++) {
+    const [title, chunks] = documents[i];
 
-		for (let j = 0; j < chunks.length; j++) {
-			console.debug(
-				"Creating Embedding for",
-				title,
-				"- Book",
-				i + 1,
-				"of",
-				documents.length,
-				"- Chunk",
-				j + 1,
-				"of",
-				chunks.length,
-			);
+    for (let j = 0; j < chunks.length; j++) {
+      console.debug(
+        "Creating Embedding for",
+        title,
+        "- Book",
+        i + 1,
+        "of",
+        documents.length,
+        "- Chunk",
+        j + 1,
+        "of",
+        chunks.length,
+      );
 
-			const chunk = chunks[j];
-			const embedding = await getEmbedding(chunk);
+      const chunk = chunks[j];
+      const embedding = await getEmbedding(chunk);
 
-			db.add({
-				id: id.toString(),
-				embedding,
-				metadata: {
-					text: chunk,
-					title,
-				},
-			});
+      db.add({
+        id: id.toString(),
+        embedding,
+        metadata: {
+          text: chunk,
+          title,
+        },
+      });
 
-			id++;
-		}
+      id++;
+    }
 
-		console.info("Created Semantic Embeddings for", title);
-	}
+    console.info("Created Semantic Embeddings for", title);
+  }
 
-	console.info("Created Semantic Vector Database");
+  console.info("Created Semantic Vector Database");
 
-	return db;
+  return db;
 };
 
 export const getEmbedding = async (
-	text: string,
-	model = config.LLM,
+  text: string,
+  model = config.LLM,
 ): Promise<Embedding> => {
-	const res = await ollama.embeddings({
-		model,
-		prompt: text,
-	});
+  const res = await ollama.embeddings({
+    model,
+    prompt: text,
+  });
 
-	return res.embedding;
+  return res.embedding;
 };
 
 // Unfortunately, imvectordb does not expose
 // metadata about the vector database
 export const getEmbeddingRange = (db: VectorDB) => {
-	const s = db.size();
+  const s = db.size();
 
-	let ma = Number.NEGATIVE_INFINITY;
-	let mi = Number.POSITIVE_INFINITY;
+  let ma = Number.NEGATIVE_INFINITY;
+  let mi = Number.POSITIVE_INFINITY;
 
-	for (let i = 1; i <= s; i++) {
-		const d = db.get(i.toString());
+  for (let i = 1; i <= s; i++) {
+    const d = db.get(i.toString());
 
-		/* eslint-disable @typescript-eslint/no-unsafe-argument */
-		ma = Math.max(ma, max(d?.embedding));
-		mi = Math.min(mi, min(d?.embedding));
-		/* eslint-enable */
-	}
+    /* eslint-disable @typescript-eslint/no-unsafe-argument */
+    ma = Math.max(ma, max(d?.embedding));
+    mi = Math.min(mi, min(d?.embedding));
+    /* eslint-enable */
+  }
 
-	return {
-		max: ma,
-		min: mi,
-	};
+  return {
+    max: ma,
+    min: mi,
+  };
 };
 
 // Generate a filename from a string
 // by removing punctuation and spaces
 export const getFilename = (s: string): string =>
-	s
-		.trim()
-		.toLowerCase()
-		.replaceAll(/[.,/#!$%^&*;:{}=\-_`~()?]/g, "") // Remove punctuation
-		.replaceAll(/\s+/g, "_"); // Remove spaces
+  s
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[.,/#!$%^&*;:{}=\-_`~()?]/g, "") // Remove punctuation
+    .replaceAll(/\s+/g, "_"); // Remove spaces
 
 export const loadDatabases = async (
-	databasePaths?: DatabasePaths,
+  databasePaths?: DatabasePaths,
 ): Promise<Databases> => {
-	const [keywordDatabase, semanticDatabase] = await Promise.all([
-		loadKeywordDatabase(databasePaths?.keywordDatabasePath),
-		loadSemanticDatabase(databasePaths?.semanticDatabasePath),
-	]);
+  const [keywordDatabase, semanticDatabase] = await Promise.all([
+    loadKeywordDatabase(databasePaths?.keywordDatabasePath),
+    loadSemanticDatabase(databasePaths?.semanticDatabasePath),
+  ]);
 
-	return {
-		keywordDatabase,
-		semanticDatabase,
-	};
+  return {
+    keywordDatabase,
+    semanticDatabase,
+  };
 };
 
 export const loadKeywordDatabase = async (
-	keywordDatabasePath?: string,
+  keywordDatabasePath?: string,
 ): Promise<MiniSearch> => {
-	const filepath =
-		keywordDatabasePath ??
-		`${getFilename(config.LLM as string)}-keyword-database.json`;
-	const file = fs.readFileSync(filepath, "utf8");
+  const filepath =
+    keywordDatabasePath ??
+    `${getFilename(config.LLM as string)}-keyword-database.json`;
+  const file = fs.readFileSync(filepath, "utf8");
 
-	return MiniSearch.loadJSON(file, {
-		fields: ["title", "text"],
-		searchOptions: {
-			fuzzy: 0.1,
-		},
-		storeFields: ["title", "text"],
-	});
+  return MiniSearch.loadJSON(file, {
+    fields: ["title", "text"],
+    searchOptions: {
+      fuzzy: 0.1,
+    },
+    storeFields: ["title", "text"],
+  });
 };
 
 export const loadSemanticDatabase = async (
-	semanticDatabasePath?: string,
+  semanticDatabasePath?: string,
 ): Promise<VectorDB> => {
-	const db = new VectorDB();
-	const filepath =
-		semanticDatabasePath ??
-		`${getFilename(config.LLM as string)}-semantic-vector.db`;
+  const db = new VectorDB();
+  const filepath =
+    semanticDatabasePath ??
+    `${getFilename(config.LLM as string)}-semantic-vector.db`;
 
-	await db.loadFile(filepath);
+  await db.loadFile(filepath);
 
-	return db;
+  return db;
 };
 
 export const readFiles = async (globpath: string): Promise<Corpus> => {
-	const corpus: Corpus = {};
+  const corpus: Corpus = {};
 
-	const filepaths = globSync(globpath);
+  const filepaths = globSync(globpath);
 
-	for (const filepath of filepaths) {
-		const title = path.basename(filepath).split(".")[0]; // Strip folger suffix
-		const file = fs.readFileSync(filepath, "utf8");
+  for (const filepath of filepaths) {
+    const title = path.basename(filepath).split(".")[0]; // Strip folger suffix
+    const file = fs.readFileSync(filepath, "utf8");
 
-		corpus[title] = file;
-	}
+    corpus[title] = file;
+  }
 
-	return corpus;
+  return corpus;
 };
 
 export type DatabasePaths = {
-	keywordDatabasePath: string;
-	semanticDatabasePath: string;
+  keywordDatabasePath: string;
+  semanticDatabasePath: string;
 };
 export const saveDatabases = async (
-	databases: Databases,
-	databasePaths?: DatabasePaths,
+  databases: Databases,
+  databasePaths?: DatabasePaths,
 ): Promise<void> => {
-	await Promise.all([
-		saveKeywordDatabase(
-			databases.keywordDatabase,
-			databasePaths?.keywordDatabasePath,
-		),
-		saveSemanticDatabase(
-			databases.semanticDatabase,
-			databasePaths?.semanticDatabasePath,
-		),
-	]);
+  await Promise.all([
+    saveKeywordDatabase(
+      databases.keywordDatabase,
+      databasePaths?.keywordDatabasePath,
+    ),
+    saveSemanticDatabase(
+      databases.semanticDatabase,
+      databasePaths?.semanticDatabasePath,
+    ),
+  ]);
 };
 
 export const saveKeywordDatabase = async (
-	keywordDatabase: MiniSearch,
-	keywordDatabasePath?: string,
+  keywordDatabase: MiniSearch,
+  keywordDatabasePath?: string,
 ): Promise<void> => {
-	const filepath =
-		keywordDatabasePath ??
-		`${getFilename(config.LLM as string)}-keyword-database.json`;
-	const data = JSON.stringify(keywordDatabase);
+  const filepath =
+    keywordDatabasePath ??
+    `${getFilename(config.LLM as string)}-keyword-database.json`;
+  const data = JSON.stringify(keywordDatabase);
 
-	try {
-		fs.writeFileSync(filepath, data, "utf8");
-	} catch (error) {
-		console.error("Unable to save keyword database to", filepath);
-		console.error(error);
-	}
+  try {
+    fs.writeFileSync(filepath, data, "utf8");
+  } catch (error) {
+    console.error("Unable to save keyword database to", filepath);
+    console.error(error);
+  }
 };
 
 export const saveSemanticDatabase = async (
-	semanticDatabase: VectorDB,
-	semanticDatabasePath?: string,
+  semanticDatabase: VectorDB,
+  semanticDatabasePath?: string,
 ): Promise<void> => {
-	const filepath =
-		semanticDatabasePath ??
-		`${getFilename(config.LLM as string)}-semantic-vector.db`;
+  const filepath =
+    semanticDatabasePath ??
+    `${getFilename(config.LLM as string)}-semantic-vector.db`;
 
-	try {
-		await semanticDatabase.dumpFile(filepath);
-	} catch (error) {
-		console.error("Unable to save semantic vector database to", filepath);
-		console.error(error);
-	}
+  try {
+    await semanticDatabase.dumpFile(filepath);
+  } catch (error) {
+    console.error("Unable to save semantic vector database to", filepath);
+    console.error(error);
+  }
 };
