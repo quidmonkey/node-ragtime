@@ -4,6 +4,8 @@ This project provides a couple examples of RAG using LLMs:
 * Sherlock Holmes - A chatbot that can answer questions about Sherlock Holmes using the public domain works of Sir Arthur Conan Doyle.
 * Web - A chatbot that can answer questions about anything using a Google search 
 
+RAG, or Retrieval Augmented Generation, can be thought of nothing more than adding additional text to an LLM prompt to give context about questions being asked. Typically, this technique leverages text search to provide text blurbs for answering questions.
+
 ## Installation
 
 Install [ollama](https://ollama.com/download)
@@ -24,7 +26,7 @@ NOTE: This project supports the use of `.env` files. A `.env` file can be create
 
 ## Sherlock RAG Example
 
-This project contains a RAG 
+This project attempts to answer questions about Sherlock Holmes, leveraging the public works and wiki article through the use of RAG.
 
 ### Generating the Corpus
 
