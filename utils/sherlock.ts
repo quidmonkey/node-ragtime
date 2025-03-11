@@ -1,4 +1,4 @@
-import { type VectorDB } from "imvectordb";
+import type { VectorDB } from "imvectordb";
 import ollama, { type Message } from "ollama";
 import config from "../environment.js";
 import { semanticSearch } from "./search.js";

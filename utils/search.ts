@@ -1,9 +1,9 @@
-import { type VectorDB } from "imvectordb";
+import type { VectorDB } from "imvectordb";
 import round from "lodash/round";
 import sortBy from "lodash/sortBy";
 /* eslint-disable import/no-duplicates */
 import type MiniSearch from "minisearch";
-import { type SearchResult } from "minisearch";
+import type { SearchResult } from "minisearch";
 /* eslint-enable */
 import { getEmbedding } from "./etl.js";
 
@@ -32,6 +32,7 @@ export const findSemanticMatches = async (
 	db: VectorDB,
 	query: string,
 	limit = 10,
+// biome-ignore lint/suspicious/noExplicitAny: imvectordb queries return any
 ): Promise<any[]> => {
 	const embedding = await getEmbedding(query);
 
@@ -40,6 +41,7 @@ export const findSemanticMatches = async (
 
 export const getScores = (
 	keywordResults: SearchResult[],
+	// biome-ignore lint/suspicious/noExplicitAny: imvectordb queries return any
 	semanticResults: any[],
 	limit?: number,
 ): CombinedScore[] => {

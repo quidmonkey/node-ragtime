@@ -19,6 +19,12 @@ export type File = string;
 export type Title = string;
 export type Texts = Record<Title, Chunk>;
 
+export interface Document {
+	id: number;
+	title: string;
+	text: string;
+}
+
 type Databases = {
 	keywordDatabase: MiniSearch;
 	semanticDatabase: VectorDB;
@@ -135,7 +141,7 @@ export const createDatabases = async (corpus: Corpus): Promise<Databases> => {
 export const createKeywordDatabase = async (corpus: Corpus) => {
 	console.info("Creating Keyword Database");
 
-	const documents: any[] = [];
+	const documents: Document[] = [];
 	const texts = await chunkCorpus(corpus);
 
 	let id = 1;
@@ -237,8 +243,8 @@ export const getEmbedding = async (
 export const getEmbeddingRange = (db: VectorDB) => {
 	const s = db.size();
 
-	let ma = -Infinity;
-	let mi = Infinity;
+	let ma = Number.NEGATIVE_INFINITY;
+	let mi = Number.POSITIVE_INFINITY;
 
 	for (let i = 1; i <= s; i++) {
 		const d = db.get(i.toString());
